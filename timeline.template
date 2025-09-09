@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{INCIDENT_TITLE}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #061A23 0%, #36495E 100%);
+            color: #C8C9C7;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #mainContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        svg#networkCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(6, 26, 35, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            z-index: 1000;
+            border-bottom: 2px solid #008CD1;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #F6CF46;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .timeline-info {
+            display: flex;
+            gap: 30px;
+            font-size: 14px;
+            color: #C8C9C7;
+        }
+
+        .timeline-info span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .timeline-info strong {
+            color: #008CD1;
+        }
+
+        /* Control Panel */
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(6, 26, 35, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #008CD1;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #008CD1;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 140, 209, 0.3);
+        }
+
+        button:hover {
+            background: #36495E;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 140, 209, 0.5);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.active-speed {
+            background: #F6CF46;
+            color: #061A23;
+        }
+
+        .progress-bar {
+            width: 400px;
+            height: 8px;
+            background: rgba(200, 201, 199, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #008CD1, #F6CF46);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 140, 209, 0.8);
+        }
+
+		.time-display {
+			text-align: center;
+			margin-top: 10px;
+			font-size: 22px;   /* was 12px */
+			color: #C8C9C7;
+			font-family: 'Courier New', monospace;
+		}
+
+        /* Event Details Modal */
+        .event-modal {
+			position: absolute;
+			bottom: 20px;       /* Stick to bottom */
+			right: 20px;        /* Stick to right */
+			transform: scale(0); /* Only scale, no centering */
+			background: rgba(6, 26, 35, 0.98);
+			backdrop-filter: blur(20px);
+			border: 2px solid #008CD1;
+			border-radius: 15px;
+			padding: 20px;
+			max-width: 400px;   /* Make it smaller so it doesn’t cover icons */
+			max-height: 90vh;   /* Limit height */
+			overflow-y: auto;
+			z-index: 2000;
+			box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+			transition: transform 0.3s ease;
+		}
+
+		.event-modal.active {
+			transform: scale(1); /* Pop in from small */
+		}
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #008CD1;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            color: #F6CF46;
+            text-shadow: 0 0 10px rgba(246, 207, 70, 0.3);
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: #ff4444;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .close-modal:hover {
+            transform: rotate(90deg);
+        }
+
+        .event-section {
+            margin-bottom: 20px;
+        }
+
+        .event-section h3 {
+            color: #008CD1;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .event-section p {
+            color: #C8C9C7;
+            line-height: 1.6;
+        }
+
+        .code-block {
+            background: #061A23;
+            border: 1px solid #008CD1;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #84A078;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .mitre-badge {
+            display: inline-block;
+            background: #F6CF46;
+            color: #061A23;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        /* Lateral movement label */
+        .lateral-movement-label {
+            position: absolute;
+            background: rgba(246, 207, 70, 0.9);
+            color: #061A23;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+
+        .lateral-movement-label.show {
+            opacity: 1;
+        }
+
+        /* Legend */
+        .legend {
+			position: absolute;
+			top: 100px;
+			left: 20px;   /* switch from right &rarr; left */
+			right: auto;  /* remove the old right alignment */
+			background: rgba(6, 26, 35, 0.95);
+			backdrop-filter: blur(10px);
+			padding: 20px;
+			border-radius: 10px;
+			border: 1px solid #008CD1;
+			z-index: 900;
+		}
+
+        .legend h3 {
+            color: #F6CF46;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #C8C9C7;
+        }
+
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        /* Loading animation */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #008CD1;
+            text-shadow: 0 0 20px rgba(0, 140, 209, 0.8);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(6, 26, 35, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #36495E;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #008CD1;
+        }
+    </style>
+</head>
+<body>
+    <div id="mainContainer">
+        <svg id="networkCanvas" xmlns="http://www.w3.org/2000/svg"></svg>
+        
+        <div class="header">
+            <h1>{{INCIDENT_TITLE}}</h1>
+            <div class="timeline-info">
+                <span>Start: <strong id="startTime">{{START_TIME}}</strong></span>
+                <span>End: <strong id="endTime">{{END_TIME}}</strong></span>
+                <span>Duration: <strong>{{TOTAL_DURATION}} minutes</strong></span>
+                <span>Events: <strong id="eventCount">0</strong></span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-buttons">
+                <button id="playBtn" onclick="togglePlay()">Play</button>
+                <button id="pauseBtn" onclick="togglePlay()" style="display:none">Pause</button>
+                <button onclick="restart()">Restart</button>
+                <button onclick="changeSpeed(0.5)">0.5x</button>
+                <button onclick="changeSpeed(1)">1x</button>
+                <button onclick="changeSpeed(2)">2x</button>
+                <button onclick="changeSpeed(5)">5x</button>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <div class="time-display" id="currentTimeDisplay">Ready to start</div>
+        </div>
+
+        <div class="legend">
+            <h3>Legend</h3>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: linear-gradient(135deg, #ff0000, #ff6600);"></div>
+                <span>Threat Actor</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #84A078; border: 2px solid #000;"></div>
+                <span>Perimeter Device</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #008CD1; border: 2px solid #000;"></div>
+                <span>Clean System</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #ff0000; border: 2px solid #ff0000;"></div>
+                <span>Compromised System</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #36495E; height: 2px; width: 20px; border-radius: 0;"></div>
+                <span>Network Connection</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background: #ff0000; height: 2px; width: 20px; border-radius: 0; box-shadow: 0 0 5px rgba(255,0,0,0.8);"></div>
+                <span>Attack Path</span>
+            </div>
+        </div>
+
+        <div class="event-modal" id="eventModal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Event Details</h2>
+                <button class="close-modal" onclick="closeModal()">X</button>
+            </div>
+            <div class="modal-content" id="modalContent"></div>
+        </div>
+
+        <div class="loading" id="loadingIndicator">Initializing Network Topology...</div>
+    </div>
+
+    <script>
+        // Data from PowerShell
+        const hosts = {{HOSTS_DATA}};
+        const perimeterDevices = {{PERIMETER_DEVICES}};
+        const timelineEvents = {{TIMELINE_EVENTS}};
+        
+        // Animation state
+        let isPlaying = false;
+        let currentEventIndex = 0;
+        let animationSpeed = 1;
+        let nodes = {};
+        let connections = {};
+        let threatActorElement = null;
+        let compromisedHosts = new Set();
+        let svg = null;
+        
+        function initializeNetwork() {
+            console.log('Initializing network with hosts:', hosts);
+            console.log('Perimeter devices:', perimeterDevices);
+            console.log('Timeline events:', timelineEvents.length);
+            
+            svg = document.getElementById('networkCanvas');
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            // Show loading
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            // Calculate positions for nodes
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(width, height) * 0.25;
+            
+            // Create all connections first (as background)
+            const connectionsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            connectionsGroup.setAttribute('id', 'connections-group');
+            svg.appendChild(connectionsGroup);
+            
+            // Create nodes group
+            const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            nodesGroup.setAttribute('id', 'nodes-group');
+            svg.appendChild(nodesGroup);
+            
+            // Create External/Threat Actor node
+            createSVGNode('External', 100, centerY, 'threatActor', 'External Threat', true, false);
+            //create switch node
+			//createSVGNode('Switch', centerX, centerY, 'switch', 'Core Switch', false, true);
+            // Create perimeter devices
+            if (perimeterDevices && perimeterDevices.length > 0) {
+                const perimeterX = 300;
+                const perimeterStartY = centerY - (perimeterDevices.length - 1) * 60;
+                
+                perimeterDevices.forEach((device, index) => {
+                    const y = perimeterStartY + (index * 120);
+                    createSVGNode(device, perimeterX, y, 'firewall', device, false, true);
+                });
+            }
+            
+            // Create internal hosts in a semi-circle
+            if (hosts && hosts.length > 0) {
+                const startAngle = -Math.PI / 2;
+                const endAngle = Math.PI / 2;
+                const angleStep = (endAngle - startAngle) / Math.max(hosts.length - 1, 1);
+                
+                hosts.forEach((host, index) => {
+					const angle = index * angleStep;
+					const x = centerX + radius * Math.cos(angle);
+					const y = centerY + radius * Math.sin(angle);
+					createSVGNode(host, x, y, 'server', host, false, false);
+                });
+            }
+            
+            // Create threat actor element
+            createThreatActorElement();
+            
+            // Draw initial connections
+            setTimeout(() => {
+                drawConnections();
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('eventCount').textContent = timelineEvents.length;
+            }, 2500);
+        }
+        
+        function createSVGNode(id, x, y, iconType, label, isThreat = false, isPerimeter = false) {
+            const nodesGroup = document.getElementById('nodes-group');
+            
+            // Create group for node
+            const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            nodeGroup.setAttribute('id', `node-${id.replace(/[^a-zA-Z0-9]/g, '-')}`);
+            nodeGroup.setAttribute('transform', `translate(${x}, ${y})`);
+            nodeGroup.style.cursor = 'pointer';
+            
+            // Create circle background
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('r', '30');
+            circle.setAttribute('fill', isPerimeter ? 'rgba(132, 160, 120, 0.2)' : 'rgba(0, 140, 209, 0.2)');
+            circle.setAttribute('stroke', isPerimeter ? '#84A078' : '#008CD1');
+            circle.setAttribute('stroke-width', '2');
+            circle.classList.add('node-circle');
+            
+            // Add glow effect
+            const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+            filter.setAttribute('id', `glow-${id.replace(/[^a-zA-Z0-9]/g, '-')}`);
+            filter.innerHTML = `
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+            `;
+            svg.appendChild(filter);
+            circle.setAttribute('filter', `url(#glow-${id.replace(/[^a-zA-Z0-9]/g, '-')})`);
+            
+            nodeGroup.appendChild(circle);
+            
+            // Add icon using simple shapes
+            if (iconType === 'threatActor') {
+                const threatIcon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                threatIcon.setAttribute('x', '0');
+                threatIcon.setAttribute('y', '5');
+                threatIcon.setAttribute('text-anchor', 'middle');
+                threatIcon.setAttribute('font-size', '24');
+                threatIcon.setAttribute('fill', '#fff');
+                threatIcon.textContent = '!';
+                nodeGroup.appendChild(threatIcon);
+            } else if (iconType === 'switch') {
+				const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+				rect.setAttribute('x', '-20');
+				rect.setAttribute('y', '-10');
+				rect.setAttribute('width', '40');
+				rect.setAttribute('height', '20');
+				rect.setAttribute('fill', '#36495E');
+				rect.setAttribute('stroke', '#008CD1');
+				rect.setAttribute('stroke-width', '2');
+				nodeGroup.appendChild(rect);
+
+				const textSymbol = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+				textSymbol.setAttribute('x', '0');
+				textSymbol.setAttribute('y', '5');
+				textSymbol.setAttribute('text-anchor', 'middle');
+				textSymbol.setAttribute('font-size', '12');
+				textSymbol.setAttribute('fill', '#F6CF46');
+				textSymbol.textContent = 'SW';
+				nodeGroup.appendChild(textSymbol);
+			} else if (iconType === 'firewall') {
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', '-15');
+                rect.setAttribute('y', '-15');
+                rect.setAttribute('width', '30');
+                rect.setAttribute('height', '30');
+                rect.setAttribute('fill', 'none');
+                rect.setAttribute('stroke', '#84A078');
+                rect.setAttribute('stroke-width', '2');
+                nodeGroup.appendChild(rect);
+                
+                // Add shield symbol
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', 'M 0,-10 L -10,0 L 0,10 L 10,0 Z');
+                path.setAttribute('fill', '#84A078');
+                nodeGroup.appendChild(path);
+            } else {
+                // Server icon - simple rectangles
+                for (let i = 0; i < 3; i++) {
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    rect.setAttribute('x', '-15');
+                    rect.setAttribute('y', -10 + (i * 8));
+                    rect.setAttribute('width', '30');
+                    rect.setAttribute('height', '4');
+                    rect.setAttribute('fill', '#008CD1');
+                    nodeGroup.appendChild(rect);
+                }
+            }
+            
+            // Add label
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', '0');
+            text.setAttribute('y', '45');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('font-size', '12');
+            text.setAttribute('fill', '#C8C9C7');
+            text.textContent = label;
+            nodeGroup.appendChild(text);
+            
+            nodesGroup.appendChild(nodeGroup);
+            
+            nodes[id] = { 
+                x: x, 
+                y: y, 
+                element: nodeGroup,
+                circle: circle,
+                isPerimeter: isPerimeter
+            };
+            
+            console.log(`Created SVG node: ${id} at (${x}, ${y})`);
+        }
+        
+        function createThreatActorElement() {
+            if (nodes['External']) {
+                const nodesGroup = document.getElementById('nodes-group');
+                
+                threatActorElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                threatActorElement.setAttribute('id', 'threat-actor');
+                threatActorElement.setAttribute('transform', `translate(${nodes['External'].x}, ${nodes['External'].y})`);
+                
+                // Create pulsing red circle
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('r', '25');
+                circle.setAttribute('fill', 'none');
+                circle.setAttribute('stroke', '#ff0000');
+                circle.setAttribute('stroke-width', '3');
+                
+                // Add animation
+                const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                animate.setAttribute('attributeName', 'r');
+                animate.setAttribute('values', '20;30;20');
+                animate.setAttribute('dur', '10s');
+                animate.setAttribute('repeatCount', 'indefinite');
+                circle.appendChild(animate);
+                
+                const animateOpacity = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                animateOpacity.setAttribute('attributeName', 'opacity');
+                animateOpacity.setAttribute('values', '1;0.3;1');
+                animateOpacity.setAttribute('dur', '10s');
+                animateOpacity.setAttribute('repeatCount', 'indefinite');
+                circle.appendChild(animateOpacity);
+                
+                threatActorElement.appendChild(circle);
+                
+                // Add inner circle
+                const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                innerCircle.setAttribute('r', '15');
+                innerCircle.setAttribute('fill', 'rgba(255, 0, 0, 0.3)');
+                innerCircle.setAttribute('stroke', '#ff6600');
+                innerCircle.setAttribute('stroke-width', '2');
+                threatActorElement.appendChild(innerCircle);
+                
+                // Add warning symbol
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', '0');
+                text.setAttribute('y', '5');
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '20');
+                text.setAttribute('fill', '#fff');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = '!';
+                threatActorElement.appendChild(text);
+                
+                nodesGroup.appendChild(threatActorElement);
+            }
+        }
+        
+        function drawConnections() {
+            const connectionsGroup = document.getElementById('connections-group');
+            
+            // Clear existing connections
+            while (connectionsGroup.firstChild) {
+                connectionsGroup.removeChild(connectionsGroup.firstChild);
+            }
+            
+            // Create unique connections based on events
+            const drawnPairs = new Set();
+            
+            timelineEvents.forEach(event => {
+                const pairKey = `${event.sourceHost}-${event.destinationHost}`;
+                const reversePairKey = `${event.destinationHost}-${event.sourceHost}`;
+                
+                if (!drawnPairs.has(pairKey) && !drawnPairs.has(reversePairKey)) {
+                    if (nodes[event.sourceHost] && nodes[event.destinationHost]) {
+                        drawnPairs.add(pairKey);
+                        createSVGConnection(event.sourceHost, event.destinationHost);
+                    }
+                }
+            });
+        }
+        
+        function createSVGConnection(fromId, toId, isActive = false) {
+            const from = nodes[fromId];
+            const to = nodes[toId];
+            
+            if (!from || !to) return;
+            
+            const connectionsGroup = document.getElementById('connections-group');
+            
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', from.x);
+            line.setAttribute('y1', from.y);
+            line.setAttribute('x2', to.x);
+            line.setAttribute('y2', to.y);
+            line.setAttribute('stroke', isActive ? '#ff0000' : '#36495E');
+            line.setAttribute('stroke-width', isActive ? '3' : '2');
+            line.setAttribute('id', `conn-${fromId}-${toId}`.replace(/[^a-zA-Z0-9\-]/g, '-'));
+            
+            if (isActive) {
+                line.setAttribute('stroke-dasharray', '10,5');
+                
+                const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                animate.setAttribute('attributeName', 'stroke-dashoffset');
+                animate.setAttribute('values', '0;15');
+                animate.setAttribute('dur', '3s');
+                animate.setAttribute('repeatCount', 'indefinite');
+                line.appendChild(animate);
+            }
+            
+            connectionsGroup.appendChild(line);
+            connections[`${fromId}-${toId}`] = line;
+            
+            return line;
+        }
+        
+        function animateEvent(event) {
+            console.log('Animating event:', event);
+            
+            // Mark source as compromised if it's not External
+            if (event.sourceHost !== 'External' && nodes[event.sourceHost]) {
+                const sourceNode = nodes[event.sourceHost];
+                sourceNode.circle.setAttribute('fill', 'rgba(255, 0, 0, 0.2)');
+                sourceNode.circle.setAttribute('stroke', '#ff0000');
+                compromisedHosts.add(event.sourceHost);
+            }
+            
+            // Highlight the connection
+            const connKey = `${event.sourceHost}-${event.destinationHost}`;
+            const reverseKey = `${event.destinationHost}-${event.sourceHost}`;
+            
+            let connection = connections[connKey] || connections[reverseKey];
+            if (connection) {
+                connection.setAttribute('stroke', '#ff0000');
+                connection.setAttribute('stroke-width', '3');
+                connection.setAttribute('stroke-dasharray', '10,5');
+                
+                // Remove existing animations
+                while (connection.firstChild) {
+                    connection.removeChild(connection.firstChild);
+                }
+                
+                // Add new animation
+                const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                animate.setAttribute('attributeName', 'stroke-dashoffset');
+                animate.setAttribute('values', '0;15');
+                animate.setAttribute('dur', '3s');
+                animate.setAttribute('repeatCount', 'indefinite');
+                connection.appendChild(animate);
+            } else {
+                // Create new active connection if it doesn't exist
+                createSVGConnection(event.sourceHost, event.destinationHost, true);
+            }
+            
+            // Animate threat actor movement
+            if (nodes[event.destinationHost] && threatActorElement) {
+                const targetNode = nodes[event.destinationHost];
+                
+                // Smooth transition to new position
+                threatActorElement.style.transition = 'transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+                threatActorElement.setAttribute('transform', `translate(${targetNode.x}, ${targetNode.y})`);
+                
+                // Show lateral movement method if exists
+                if (event.lateralMovement) {
+                    showLateralMovementLabel(event);
+                }
+                
+                // Mark destination as compromised after delay
+                setTimeout(() => {
+                    targetNode.circle.setAttribute('fill', 'rgba(255, 0, 0, 0.7)');
+                    targetNode.circle.setAttribute('stroke', '#ff0000');
+                    targetNode.circle.setAttribute('stroke-width', '4');
+                    compromisedHosts.add(event.destinationHost);
+                }, 500);
+            }
+            
+            // Show event details modal
+            showEventModal(event);
+            
+            // Update progress
+            updateProgress();
+        }
+        
+        function showLateralMovementLabel(event) {
+            if (!event.lateralMovement) return;
+            
+            const from = nodes[event.sourceHost];
+            const to = nodes[event.destinationHost];
+            
+            if (!from || !to) return;
+            
+            const label = document.createElement('div');
+            label.className = 'lateral-movement-label';
+            label.textContent = event.lateralMovement;
+            
+            const midX = (from.x + to.x) / 2;
+            const midY = (from.y + to.y) / 2;
+            
+            label.style.left = `${midX - 50}px`;
+            label.style.top = `${midY + 10}px`;
+            
+            document.getElementById('mainContainer').appendChild(label);
+            
+            setTimeout(() => {
+                label.classList.add('show');
+                setTimeout(() => {
+                    label.remove();
+                }, 3000);
+            }, 500);
+        }
+        
+		function escapeHtml(str) {
+			return String(str)
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#039;');
+		}
+		
+        function showEventModal(event) {
+            const modal = document.getElementById('eventModal');
+            const content = document.getElementById('modalContent');
+            let raw = String(event.details);
+			// 1) convert literal sequences like "\n" (backslash + n) to actual newlines
+			raw = raw.replace(/\\r\\n/g, '\r\n')   // handle Windows-style double-escaped CRLF
+					 .replace(/\\n/g, '\n')
+					 .replace(/\\r/g, '\r');
+			  // 2) escape HTML to be safe
+			const escaped = escapeHtml(raw);
+			// 3) convert real newlines to <br> for HTML rendering
+			const htmlWithBreaks = escaped.replace(/\r\n|\r|\n/g, '<br>');
+            let html = '';
+            
+            // Action section
+            html += '<div class="event-section">';
+            html += '<h3>Action</h3>';
+            html += `<p>${event.action}</p>`;
+            html += '</div>';
+            
+            // Path section
+            html += '<div class="event-section">';
+            html += '<h3>Attack Path</h3>';
+            html += `<p>${event.sourceHost} -> ${event.destinationHost}</p>`;
+            if (event.lateralMovement) {
+                html += `<p><strong>Method:</strong> ${event.lateralMovement}</p>`;
+            }
+            html += '</div>';
+            
+            // Tools section
+            if (event.tools) {
+                html += '<div class="event-section">';
+                html += '<h3>Tools Used</h3>';
+                html += `<p>${event.tools}</p>`;
+                html += '</div>';
+            }
+            
+            // Files section
+            if (event.files) {
+                html += '<div class="event-section">';
+                html += '<h3>Files Involved</h3>';
+                html += `<p>${event.files}</p>`;
+                html += '</div>';
+            }
+            
+            // Technical details
+            if (event.details) {
+                html += '<div class="event-section">';
+                html += '<h3>Technical Details</h3>';
+                html += `<div class="code-block">${htmlWithBreaks}</div>`;
+                html += '</div>';
+            }
+            
+            // MITRE ATT&CK
+            if (event.mitreId || event.mitreTechnique) {
+                html += '<div class="event-section">';
+                html += '<h3>MITRE ATT&CK Mapping</h3>';
+                if (event.mitreTechnique) {
+                    html += `<p>${event.mitreTechnique}</p>`;
+                }
+                if (event.mitreId) {
+                    html += `<div class="mitre-badge">${event.mitreId}</div>`;
+                }
+                html += '</div>';
+            }
+            
+            content.innerHTML = html;
+            modal.classList.add('active');
+            
+			// Assume event.timestamp is a string parseable by Date()
+			const eventTime = new Date(event.timestamp);
+			const firstTime = new Date(timelineEvents[0].timestamp);
+
+			// difference in minutes
+			const diffMinutes = Math.floor((eventTime - firstTime) / 60000);
+
+			// convert to day/hour
+			const totalHours = Math.floor(diffMinutes / 60);
+			const day = Math.floor(totalHours / 24);
+			const hour = totalHours % 24;
+
+			// update display with two lines
+			document.getElementById('currentTimeDisplay').innerHTML = 
+				`Event ${currentEventIndex + 1}/${timelineEvents.length} - ${event.timestamp}<br>` +
+				`Day ${day}, Hour ${hour}`;
+        }
+        
+        function closeModal() {
+            document.getElementById('eventModal').classList.remove('active');
+        }
+        
+        function updateProgress() {
+            const progress = ((currentEventIndex + 1) / timelineEvents.length) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+        
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            
+            if (isPlaying) {
+                document.getElementById('playBtn').style.display = 'none';
+                document.getElementById('pauseBtn').style.display = 'inline-block';
+                playTimeline();
+            } else {
+                document.getElementById('playBtn').style.display = 'inline-block';
+                document.getElementById('pauseBtn').style.display = 'none';
+            }
+        }
+        
+        function playTimeline() {
+            if (!isPlaying || currentEventIndex >= timelineEvents.length) {
+                if (currentEventIndex >= timelineEvents.length) {
+                    // Timeline finished
+                    isPlaying = false;
+                    document.getElementById('playBtn').style.display = 'inline-block';
+                    document.getElementById('pauseBtn').style.display = 'none';
+                    document.getElementById('currentTimeDisplay').textContent = 'Timeline Complete';
+                }
+                return;
+            }
+            
+            const event = timelineEvents[currentEventIndex];
+            animateEvent(event);
+            
+            currentEventIndex++;
+            
+            // Calculate delay for next event
+            let delay = 5000 / animationSpeed; // Base delay between events
+            
+            // Add extra delay for modal reading
+            if (event.details || event.tools || event.files) {
+                delay += 4000 / animationSpeed;
+            }
+            
+			 setTimeout(() => {
+				if (isPlaying) {   // ? only close if still playing
+					closeModal();
+					setTimeout(() => {
+						playTimeline();
+					}, 500);
+				}
+			}, delay);
+        }
+        
+        function restart() {
+            // Reset state
+            isPlaying = false;
+            currentEventIndex = 0;
+            compromisedHosts.clear();
+            
+            // Reset UI
+            document.getElementById('playBtn').style.display = 'inline-block';
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('currentTimeDisplay').textContent = 'Ready to start';
+            
+            // Reset node states
+            Object.values(nodes).forEach(node => {
+                if (node.circle) {
+                    if (node.isPerimeter) {
+                        node.circle.setAttribute('fill', 'rgba(132, 160, 120, 0.2)');
+                        node.circle.setAttribute('stroke', '#84A078');
+                    } else {
+                        node.circle.setAttribute('fill', 'rgba(0, 140, 209, 0.2)');
+                        node.circle.setAttribute('stroke', '#008CD1');
+                    }
+                }
+            });
+            
+            // Reset threat actor position
+            if (threatActorElement && nodes['External']) {
+                threatActorElement.style.transition = 'none';
+                threatActorElement.setAttribute('transform', `translate(${nodes['External'].x}, ${nodes['External'].y})`);
+                setTimeout(() => {
+                    threatActorElement.style.transition = 'transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+                }, 100);
+            }
+            
+            // Reset connections
+            Object.values(connections).forEach(line => {
+                line.setAttribute('stroke', '#36495E');
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', 'none');
+                // Remove any animation children
+                while (line.firstChild) {
+                    line.removeChild(line.firstChild);
+                }
+            });
+            
+            // Close modal
+            closeModal();
+        }
+        
+        function changeSpeed(speed) {
+            animationSpeed = speed;
+            
+            // Update button states to show active speed
+            document.querySelectorAll('.control-buttons button').forEach(btn => {
+                if (btn.textContent.includes('x')) {
+                    if (btn.textContent === `${speed}x`) {
+                        btn.classList.add('active-speed');
+                    } else {
+                        btn.classList.remove('active-speed');
+                    }
+                }
+            });
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case ' ':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'r':
+                    restart();
+                    break;
+                case 'ArrowRight':
+                    if (!isPlaying && currentEventIndex < timelineEvents.length) {
+                        animateEvent(timelineEvents[currentEventIndex]);
+                        currentEventIndex++;
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (!isPlaying && currentEventIndex > 0) {
+                        currentEventIndex = Math.max(0, currentEventIndex - 2);
+                        restart();
+                        for (let i = 0; i <= currentEventIndex; i++) {
+                            animateEvent(timelineEvents[i]);
+                        }
+                    }
+                    break;
+                case 'Escape':
+                    closeModal();
+                    break;
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            // Would need to recalculate all positions here
+            // For now, just redraw connections
+            if (svg) {
+                // Note: Full resize handling would require recalculating all node positions
+                console.log('Window resized - full recalculation needed for production');
+            }
+        });
+        
+        // Initialize on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, initializing network...');
+            console.log('Hosts data:', hosts);
+            console.log('Perimeter devices:', perimeterDevices);
+            console.log('Timeline events:', timelineEvents);
+            
+            // Validate data
+            if (!hosts || hosts.length === 0) {
+                console.error('No hosts data found!');
+                document.getElementById('loadingIndicator').textContent = 'Error: No hosts data found';
+                document.getElementById('loadingIndicator').style.color = '#ff0000';
+                return;
+            }
+            
+            if (!timelineEvents || timelineEvents.length === 0) {
+                console.error('No timeline events found!');
+                document.getElementById('loadingIndicator').textContent = 'Error: No timeline events found';
+                document.getElementById('loadingIndicator').style.color = '#ff0000';
+                return;
+            }
+            
+            // Initialize the network visualization
+            initializeNetwork();
+            
+            // Show ready message
+            setTimeout(() => {
+                document.getElementById('currentTimeDisplay').textContent = 
+                    'Press Play or Spacebar to begin';
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+Timestamp,SourceHost,DestinationHost,Action,LateralMovementMethod,ToolsUsed,FilesInvolved,Details,MitreAttackID,MitreAttackTechnique,PerimeterDevice,IsInitialAccess
+2029-01-13T01:08:00-04:00,External,ASA VPN,Initial compromise via Valid Credentials,VPN,Valid Credentials,NA,Possible 0-Day Exploit or Phishing VIctim,T1190,Exploit Public-Facing Application,ASA VPN,	TRUE

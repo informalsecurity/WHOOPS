@@ -553,13 +553,14 @@
                 console.log('Setting up internal_to_external scenario');
                 console.log('Beachhead host:', beachheadHost);
                 
-                createSVGNode('External', width - 100, centerY, 'malicious', 'Malicious Host', false, false, true);
+                // Create malicious external host on LEFT side (consistent with Scenario 1)
+                createSVGNode('External', 100, centerY, 'malicious', 'Malicious Host', false, false, true);
                 
-                // Create internal hosts in a semi-circle (left side)
+                // Create internal hosts in a semi-circle (right side)
                 if (hosts && hosts.length > 0) {
                     console.log('Creating internal hosts:', hosts);
-                    const startAngle = Math.PI / 2;
-                    const endAngle = 3 * Math.PI / 2;
+                    const startAngle = -Math.PI / 2;
+                    const endAngle = Math.PI / 2;
                     const angleStep = (endAngle - startAngle) / Math.max(hosts.length - 1, 1);
                     
                     hosts.forEach((host, index) => {

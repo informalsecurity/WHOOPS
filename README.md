@@ -67,6 +67,32 @@ This tool converts CSV incident data into an interactive, animated HTML visualiz
 - Leave `PerimeterDevice` blank or set to NA
 - Subsequent rows show lateral movement from beachhead
 
+**Multi-line Fields**:
+You can include multiple values in these fields using line breaks within the CSV cell:
+- **MitreAttackID**: Multiple technique IDs (one per line)
+- **MitreAttackTechnique**: Multiple technique names (one per line)
+- **Details**: Multi-line technical details
+- **ToolsUsed**: Multiple tools (one per line)
+- **FilesInvolved**: Multiple files (one per line)
+
+**Example with multiple MITRE techniques**:
+```csv
+MitreAttackID,MitreAttackTechnique
+"T1003.001
+T1134.001","LSASS Memory
+Access Token Manipulation: Token Impersonation/Theft"
+```
+
+This will display as:
+```
+MITRE ATT&CK Mapping:
+LSASS Memory
+[T1003.001]
+
+Access Token Manipulation: Token Impersonation/Theft
+[T1134.001]
+```
+
 ## Usage
 
 ### Basic Usage
@@ -130,12 +156,14 @@ External Threat    Perimeter       Internal Network
 
 **Scenario 2 Visual Layout**:
 ```
-Internal Network              External Malicious
-   (left arc)                     (right)
-💻 Beachhead ⚠️  ←←←  ⚠️ Malicious Host
-    ↓
-💻 Other Hosts
+Malicious Host     Internal Network
+    (left)            (right arc)
+      ⚠️    ←←←    💻 Beachhead ⚠️
+                        ↓
+                   💻 Other Hosts
 ```
+
+**Both scenarios keep external/malicious elements on the left side for consistency and to prevent modal overlap.**
 
 ### Color Coding
 

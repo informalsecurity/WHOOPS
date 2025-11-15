@@ -1079,29 +1079,36 @@
         function showEventModal(event) {
             const modal = document.getElementById('eventModal');
             const content = document.getElementById('modalContent');
-            let raw = String(event.details);
-            // Convert literal sequences like "\n" to actual newlines
-            raw = raw.replace(/\\r\\n/g, '\r\n')
-                     .replace(/\\n/g, '\n')
-                     .replace(/\\r/g, '\r');
-            // Escape HTML to be safe
-            const escaped = escapeHtml(raw);
-            // Convert real newlines to <br> for HTML rendering
-            const htmlWithBreaks = escaped.replace(/\r\n|\r|\n/g, '<br>');
+            
+            // Helper function to process text with line breaks
+            function processText(text) {
+                if (!text) return '';
+                let processed = String(text);
+                // Convert literal sequences like "\n" to actual newlines
+                processed = processed.replace(/\\r\\n/g, '\n')
+                                   .replace(/\\n/g, '\n')
+                                   .replace(/\\r/g, '\n');
+                // Escape HTML to be safe
+                processed = escapeHtml(processed);
+                // Convert real newlines to <br> for HTML rendering
+                processed = processed.replace(/\r\n|\r|\n/g, '<br>');
+                return processed;
+            }
+            
             let html = '';
             
             // Action section
             html += '<div class="event-section">';
             html += '<h3>Action</h3>';
-            html += `<p>${event.action}</p>`;
+            html += `<p>${escapeHtml(event.action)}</p>`;
             html += '</div>';
             
             // Path section
             html += '<div class="event-section">';
             html += '<h3>Attack Path</h3>';
-            html += `<p>${event.sourceHost} → ${event.destinationHost}</p>`;
+            html += `<p>${escapeHtml(event.sourceHost)} → ${escapeHtml(event.destinationHost)}</p>`;
             if (event.lateralMovement) {
-                html += `<p><strong>Method:</strong> ${event.lateralMovement}</p>`;
+                html += `<p><strong>Method:</strong> ${escapeHtml(event.lateralMovement)}</p>`;
             }
             html += '</div>';
             
@@ -1109,7 +1116,7 @@
             if (event.tools) {
                 html += '<div class="event-section">';
                 html += '<h3>Tools Used</h3>';
-                html += `<p>${event.tools}</p>`;
+                html += `<p>${processText(event.tools)}</p>`;
                 html += '</div>';
             }
             
@@ -1117,7 +1124,7 @@
             if (event.files) {
                 html += '<div class="event-section">';
                 html += '<h3>Files Involved</h3>';
-                html += `<p>${event.files}</p>`;
+                html += `<p>${processText(event.files)}</p>`;
                 html += '</div>';
             }
             
@@ -1125,7 +1132,7 @@
             if (event.details) {
                 html += '<div class="event-section">';
                 html += '<h3>Technical Details</h3>';
-                html += `<div class="code-block">${htmlWithBreaks}</div>`;
+                html += `<div class="code-block">${processText(event.details)}</div>`;
                 html += '</div>';
             }
             
@@ -1133,12 +1140,34 @@
             if (event.mitreId || event.mitreTechnique) {
                 html += '<div class="event-section">';
                 html += '<h3>MITRE ATT&CK Mapping</h3>';
-                if (event.mitreTechnique) {
-                    html += `<p>${event.mitreTechnique}</p>`;
+                
+                // Parse multiple techniques (line-delimited)
+                const mitreIds = event.mitreId ? String(event.mitreId).split('\n').map(s => s.trim()).filter(s => s) : [];
+                const mitreTechniques = event.mitreTechnique ? String(event.mitreTechnique).split('\n').map(s => s.trim()).filter(s => s) : [];
+                
+                // Display each technique with its ID
+                const maxLength = Math.max(mitreIds.length, mitreTechniques.length);
+                
+                if (maxLength > 0) {
+                    for (let i = 0; i < maxLength; i++) {
+                        const techName = mitreTechniques[i] || '';
+                        const techId = mitreIds[i] || '';
+                        
+                        if (techName || techId) {
+                            html += '<div style="margin-bottom: 10px;">';
+                            if (techName) {
+                                html += `<p style="margin-bottom: 5px;">${escapeHtml(techName)}</p>`;
+                            }
+                            if (techId) {
+                                html += `<div class="mitre-badge">${escapeHtml(techId)}</div>`;
+                            }
+                            html += '</div>';
+                        }
+                    }
+                } else if (event.mitreTechnique) {
+                    html += `<p>${escapeHtml(event.mitreTechnique)}</p>`;
                 }
-                if (event.mitreId) {
-                    html += `<div class="mitre-badge">${event.mitreId}</div>`;
-                }
+                
                 html += '</div>';
             }
             

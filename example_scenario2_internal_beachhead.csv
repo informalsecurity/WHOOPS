@@ -1,0 +1,12 @@
+Timestamp,SourceHost,DestinationHost,Action,LateralMovementMethod,ToolsUsed,FilesInvolved,Details,MitreAttackID,MitreAttackTechnique,PerimeterDevice,IsInitialAccess
+2029-01-13T09:15:00-04:00,WORKSTATION-12,External,Malicious payload download via phishing email,NA,PowerShell,invoice.pdf.exe,"Employee clicked malicious link in phishing email, downloaded and executed trojanized invoice attachment",T1566.001,Spearphishing Attachment,NA,TRUE
+2029-01-13T09:16:00-04:00,WORKSTATION-12,WORKSTATION-12,Initial persistence established,NA,PowerShell,startup.vbs,Created VBScript in startup folder for persistence,T1547.001,Registry Run Keys / Startup Folder,NA,FALSE
+2029-01-13T09:20:00-04:00,WORKSTATION-12,WORKSTATION-12,Discovery and enumeration,NA,net.exe,NA,Enumerated domain users and computers using native Windows commands,T1087.002,Domain Account Discovery,NA,FALSE
+2029-01-13T09:35:00-04:00,WORKSTATION-12,DC01,Lateral movement to Domain Controller,SMB,Cobalt Strike,beacon.exe,Used Cobalt Strike beacon to move laterally to domain controller,T1021.002,SMB/Windows Admin Shares,NA,FALSE
+2029-01-13T09:45:00-04:00,DC01,DC01,Credential dumping,NA,Mimikatz,ntds.dit,Extracted Active Directory database for offline credential harvesting,T1003.003,NTDS,NA,FALSE
+2029-01-13T10:00:00-04:00,DC01,SQL-SERVER-01,Lateral movement to SQL Server,WMI,WMI,NA,Used stolen domain admin credentials to access SQL server via WMI,T1047,Windows Management Instrumentation,NA,FALSE
+2029-01-13T10:15:00-04:00,SQL-SERVER-01,SQL-SERVER-01,Database exfiltration preparation,NA,sqlcmd,customer_db.bak,Backed up customer database for exfiltration,T1119,Automated Collection,NA,FALSE
+2029-01-13T10:30:00-04:00,DC01,FILE-SERVER-02,Lateral movement to file server,RDP,Remote Desktop,NA,RDP session to file server using compromised credentials,T1021.001,Remote Desktop Protocol,NA,FALSE
+2029-01-13T10:45:00-04:00,FILE-SERVER-02,FILE-SERVER-02,Sensitive file discovery,NA,PowerShell,NA,Searched for files containing keywords: password credit-card SSN confidential,T1083,File and Directory Discovery,NA,FALSE
+2029-01-13T11:00:00-04:00,SQL-SERVER-01,External,Database exfiltration,NA,WinSCP,customer_db.bak,Uploaded database backup to attacker FTP server,T1048.002,Exfiltration Over Asymmetric Encrypted Non-C2 Protocol,NA,FALSE
+2029-01-13T11:15:00-04:00,FILE-SERVER-02,External,Document exfiltration,NA,Mega Upload,sensitive_docs.zip,Exfiltrated sensitive documents to Mega cloud storage,T1567.002,Exfiltration to Cloud Storage,NA,FALSE

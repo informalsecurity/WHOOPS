@@ -30,7 +30,7 @@ This tool converts CSV incident data into an interactive, animated HTML visualiz
 
 ## Files Included
 
-1. **Generate-IncidentTimeline.ps1** - PowerShell script that processes CSV and generates HTML
+1. **whoops.ps1** - PowerShell script that processes CSV and generates HTML
 2. **timeline_template.html** - HTML template with embedded JavaScript for visualization
 3. **example_scenario1_external_to_perimeter.csv** - Example CSV for Scenario 1
 4. **example_scenario2_internal_beachhead.csv** - Example CSV for Scenario 2
@@ -99,7 +99,7 @@ Access Token Manipulation: Token Impersonation/Theft
 ### Basic Usage
 
 ```powershell
-.\Generate-IncidentTimeline.ps1 `
+.\whoops.ps1 `
     -CsvPath "incident_data.csv" `
     -TemplatePath "timeline_template.html" `
     -OutputPath "my_incident.html" `
@@ -117,7 +117,7 @@ Access Token Manipulation: Token Impersonation/Theft
 
 **Scenario 1 Example**:
 ```powershell
-.\Generate-IncidentTimeline.ps1 `
+.\whoops.ps1 `
     -CsvPath "example_scenario1_external_to_perimeter.csv" `
     -TemplatePath "timeline_template.html" `
     -OutputPath "vpn_breach_timeline.html" `
@@ -126,7 +126,7 @@ Access Token Manipulation: Token Impersonation/Theft
 
 **Scenario 2 Example**:
 ```powershell
-.\Generate-IncidentTimeline.ps1 `
+.\whoops.ps1 `
     -CsvPath "example_scenario2_internal_beachhead.csv" `
     -TemplatePath "timeline_template.html" `
     -OutputPath "phishing_attack_timeline.html" `

@@ -269,6 +269,132 @@
             opacity: 1;
         }
 
+        .lateral-movement-label.permanent {
+            opacity: 1;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .lateral-movement-label.permanent:hover {
+            background: rgba(246, 207, 70, 1);
+            transform: scale(1.05);
+        }
+
+        /* Lateral movement type colors */
+        .lm-rdp { background: rgba(0, 140, 209, 0.9) !important; color: white !important; }
+        .lm-smb { background: rgba(132, 160, 120, 0.9) !important; color: white !important; }
+        .lm-wmi { background: rgba(255, 107, 107, 0.9) !important; color: white !important; }
+        .lm-psexec { background: rgba(255, 165, 0, 0.9) !important; color: white !important; }
+        .lm-ssh { background: rgba(138, 43, 226, 0.9) !important; color: white !important; }
+        .lm-vpn { background: rgba(0, 191, 255, 0.9) !important; color: white !important; }
+        .lm-powershell { background: rgba(30, 144, 255, 0.9) !important; color: white !important; }
+        .lm-other { background: rgba(128, 128, 128, 0.9) !important; color: white !important; }
+
+        /* Event navigation panel */
+        .event-nav-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(6, 26, 35, 0.98);
+            backdrop-filter: blur(20px);
+            border: 2px solid #008CD1;
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 350px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 2000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .event-nav-panel.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .event-nav-header {
+            color: #F6CF46;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .event-nav-counter {
+            font-size: 12px;
+            color: #008CD1;
+        }
+
+        .event-nav-item {
+            background: rgba(0, 140, 209, 0.2);
+            border: 1px solid #008CD1;
+            border-radius: 5px;
+            padding: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .event-nav-item:hover {
+            background: rgba(0, 140, 209, 0.4);
+            transform: translateX(5px);
+        }
+
+        .event-nav-item.active {
+            background: rgba(246, 207, 70, 0.3);
+            border-color: #F6CF46;
+        }
+
+        .event-nav-item-title {
+            font-size: 12px;
+            color: #F6CF46;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .event-nav-item-details {
+            font-size: 10px;
+            color: #C8C9C7;
+        }
+
+        /* Summary mode indicator */
+        .summary-mode-indicator {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(246, 207, 70, 0.95);
+            color: #061A23;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            z-index: 1500;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .summary-mode-indicator.active {
+            opacity: 1;
+        }
+
+        /* Node highlighting on hover */
+        .node-circle.clickable {
+            cursor: pointer;
+        }
+
+        .node-circle.selected {
+            stroke-width: 5 !important;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+
         /* Email animation */
         .email-envelope {
             position: absolute;
@@ -409,6 +535,18 @@
             </div>
         </div>
 
+        <div class="summary-mode-indicator" id="summaryModeIndicator">
+            📊 Summary View - Click hosts to explore • Press R to restart
+        </div>
+
+        <div class="event-nav-panel" id="eventNavPanel">
+            <div class="event-nav-header">
+                <span id="eventNavTitle">Select Event</span>
+                <span class="event-nav-counter" id="eventNavCounter">0 events</span>
+            </div>
+            <div id="eventNavContent"></div>
+        </div>
+
         <div class="event-modal" id="eventModal">
             <div class="modal-header">
                 <h2 class="modal-title" id="modalTitle">Event Details</h2>
@@ -461,6 +599,10 @@
         let externalMaliciousElement = null;
         let compromisedHosts = new Set();
         let svg = null;
+        let summaryMode = false;
+        let permanentLabels = [];
+        let selectedHostId = null;
+        let hostEventMap = {}; // Map of hostId -> array of event indices
         
         function initializeNetwork() {
             console.log('=== STARTING NETWORK INITIALIZATION ===');
@@ -653,6 +795,20 @@
             circle.setAttribute('filter', `url(#${filterId})`);
             
             nodeGroup.appendChild(circle);
+            
+            // Add click handler for interactive mode
+            nodeGroup.addEventListener('click', () => {
+                if (summaryMode) {
+                    handleNodeClick(id);
+                }
+            });
+            
+            // Add hover effect in summary mode
+            nodeGroup.addEventListener('mouseenter', () => {
+                if (summaryMode) {
+                    circle.style.cursor = 'pointer';
+                }
+            });
             
             // Add icon using simple shapes
             if (iconType === 'threatActor') {
@@ -1217,6 +1373,11 @@
                     document.getElementById('playBtn').style.display = 'inline-block';
                     document.getElementById('pauseBtn').style.display = 'none';
                     document.getElementById('currentTimeDisplay').textContent = 'Timeline Complete';
+                    
+                    // Enter summary mode
+                    setTimeout(() => {
+                        enterSummaryMode();
+                    }, 1000);
                 }
                 return;
             }
@@ -1244,6 +1405,11 @@
         }
         
         function restart() {
+            // Exit summary mode if active
+            if (summaryMode) {
+                exitSummaryMode();
+            }
+            
             isPlaying = false;
             currentEventIndex = 0;
             compromisedHosts.clear();
@@ -1308,6 +1474,269 @@
                     } else {
                         btn.classList.remove('active-speed');
                     }
+                }
+            });
+        }
+        
+        // ========== SUMMARY MODE FUNCTIONS ==========
+        
+        function enterSummaryMode() {
+            console.log('=== ENTERING SUMMARY MODE ===');
+            summaryMode = true;
+            
+            // Show summary indicator
+            document.getElementById('summaryModeIndicator').classList.add('active');
+            
+            // Build host event map
+            buildHostEventMap();
+            
+            // Display all lateral movements with color coding
+            displayPermanentLateralMovements();
+            
+            // Enable node clicking
+            enableNodeInteraction();
+            
+            // Close any open modals
+            closeModal();
+            
+            console.log('Summary mode active - click on hosts to explore');
+        }
+        
+        function buildHostEventMap() {
+            hostEventMap = {};
+            
+            timelineEvents.forEach((event, index) => {
+                // Map source host
+                if (event.sourceHost && event.sourceHost !== 'External') {
+                    if (!hostEventMap[event.sourceHost]) {
+                        hostEventMap[event.sourceHost] = [];
+                    }
+                    hostEventMap[event.sourceHost].push(index);
+                }
+                
+                // Map destination host
+                if (event.destinationHost && event.destinationHost !== 'External') {
+                    if (!hostEventMap[event.destinationHost]) {
+                        hostEventMap[event.destinationHost] = [];
+                    }
+                    // Only add if not already added (for same-host events)
+                    if (!hostEventMap[event.destinationHost].includes(index)) {
+                        hostEventMap[event.destinationHost].push(index);
+                    }
+                }
+            });
+            
+            console.log('Host event map:', hostEventMap);
+        }
+        
+        function getLateralMovementClass(method) {
+            if (!method) return 'lm-other';
+            
+            const methodLower = method.toLowerCase();
+            if (methodLower.includes('rdp') || methodLower.includes('remote desktop')) return 'lm-rdp';
+            if (methodLower.includes('smb') || methodLower.includes('admin share')) return 'lm-smb';
+            if (methodLower.includes('wmi') || methodLower.includes('management instrumentation')) return 'lm-wmi';
+            if (methodLower.includes('psexec')) return 'lm-psexec';
+            if (methodLower.includes('ssh')) return 'lm-ssh';
+            if (methodLower.includes('vpn')) return 'lm-vpn';
+            if (methodLower.includes('powershell') || methodLower.includes('ps')) return 'lm-powershell';
+            
+            return 'lm-other';
+        }
+        
+        function displayPermanentLateralMovements() {
+            console.log('Displaying permanent lateral movement labels');
+            
+            // Clear any existing permanent labels
+            permanentLabels.forEach(label => label.remove());
+            permanentLabels = [];
+            
+            let sequenceNumber = 1;
+            
+            timelineEvents.forEach((event, index) => {
+                if (event.lateralMovement && nodes[event.sourceHost] && nodes[event.destinationHost]) {
+                    const from = nodes[event.sourceHost];
+                    const to = nodes[event.destinationHost];
+                    
+                    const label = document.createElement('div');
+                    label.className = 'lateral-movement-label permanent ' + getLateralMovementClass(event.lateralMovement);
+                    label.textContent = `#${sequenceNumber}: ${event.lateralMovement}`;
+                    label.dataset.eventIndex = index;
+                    label.dataset.sourceHost = event.sourceHost;
+                    label.dataset.destinationHost = event.destinationHost;
+                    
+                    const midX = (from.x + to.x) / 2;
+                    const midY = (from.y + to.y) / 2;
+                    
+                    label.style.left = `${midX - 60}px`;
+                    label.style.top = `${midY + 10}px`;
+                    
+                    // Click handler for label
+                    label.addEventListener('click', () => {
+                        showEventDetails(index);
+                    });
+                    
+                    document.getElementById('mainContainer').appendChild(label);
+                    permanentLabels.push(label);
+                    
+                    sequenceNumber++;
+                }
+            });
+            
+            console.log(`Displayed ${permanentLabels.length} lateral movement labels`);
+        }
+        
+        function enableNodeInteraction() {
+            Object.keys(nodes).forEach(nodeId => {
+                const node = nodes[nodeId];
+                if (node.circle && nodeId !== 'External') {
+                    node.circle.classList.add('clickable');
+                }
+            });
+        }
+        
+        function handleNodeClick(hostId) {
+            console.log('Node clicked:', hostId);
+            
+            // Clear previous selection
+            if (selectedHostId) {
+                const prevNode = nodes[selectedHostId];
+                if (prevNode && prevNode.circle) {
+                    prevNode.circle.classList.remove('selected');
+                }
+            }
+            
+            // Highlight selected node
+            selectedHostId = hostId;
+            const node = nodes[hostId];
+            if (node && node.circle) {
+                node.circle.classList.add('selected');
+            }
+            
+            // Highlight related lateral movements
+            highlightRelatedMovements(hostId);
+            
+            // Show events for this host
+            showHostEvents(hostId);
+        }
+        
+        function highlightRelatedMovements(hostId) {
+            // Dim all labels
+            permanentLabels.forEach(label => {
+                label.style.opacity = '0.3';
+            });
+            
+            // Highlight labels related to this host
+            permanentLabels.forEach(label => {
+                if (label.dataset.sourceHost === hostId || label.dataset.destinationHost === hostId) {
+                    label.style.opacity = '1';
+                    label.style.fontWeight = '700';
+                } else {
+                    label.style.fontWeight = '600';
+                }
+            });
+        }
+        
+        function showHostEvents(hostId) {
+            const eventIndices = hostEventMap[hostId] || [];
+            
+            if (eventIndices.length === 0) {
+                console.log('No events for host:', hostId);
+                document.getElementById('eventNavPanel').classList.remove('active');
+                closeModal();
+                return;
+            }
+            
+            console.log(`Host ${hostId} has ${eventIndices.length} events`);
+            
+            // Update event navigation panel
+            const panel = document.getElementById('eventNavPanel');
+            const content = document.getElementById('eventNavContent');
+            const title = document.getElementById('eventNavTitle');
+            const counter = document.getElementById('eventNavCounter');
+            
+            title.textContent = hostId;
+            counter.textContent = `${eventIndices.length} event${eventIndices.length > 1 ? 's' : ''}`;
+            
+            // Build event list
+            content.innerHTML = '';
+            eventIndices.forEach((eventIndex, listIndex) => {
+                const event = timelineEvents[eventIndex];
+                const item = document.createElement('div');
+                item.className = 'event-nav-item';
+                item.dataset.eventIndex = eventIndex;
+                
+                const itemTitle = document.createElement('div');
+                itemTitle.className = 'event-nav-item-title';
+                itemTitle.textContent = `Event ${eventIndex + 1}: ${event.action}`;
+                
+                const itemDetails = document.createElement('div');
+                itemDetails.className = 'event-nav-item-details';
+                itemDetails.textContent = `${event.sourceHost} → ${event.destinationHost}`;
+                if (event.lateralMovement) {
+                    itemDetails.textContent += ` via ${event.lateralMovement}`;
+                }
+                
+                item.appendChild(itemTitle);
+                item.appendChild(itemDetails);
+                
+                item.addEventListener('click', () => {
+                    // Remove active from all items
+                    content.querySelectorAll('.event-nav-item').forEach(i => i.classList.remove('active'));
+                    // Add active to clicked item
+                    item.classList.add('active');
+                    // Show event details
+                    showEventDetails(eventIndex);
+                });
+                
+                content.appendChild(item);
+            });
+            
+            // Show panel
+            panel.classList.add('active');
+            
+            // Auto-show first event
+            if (eventIndices.length > 0) {
+                content.querySelector('.event-nav-item').classList.add('active');
+                showEventDetails(eventIndices[0]);
+            }
+        }
+        
+        function showEventDetails(eventIndex) {
+            const event = timelineEvents[eventIndex];
+            console.log('Showing event details:', eventIndex, event);
+            
+            // Use the existing modal display function
+            currentEventIndex = eventIndex; // Temporarily set for display purposes
+            showEventModal(event);
+        }
+        
+        function exitSummaryMode() {
+            console.log('Exiting summary mode');
+            summaryMode = false;
+            
+            // Hide summary indicator
+            document.getElementById('summaryModeIndicator').classList.remove('active');
+            
+            // Hide event nav panel
+            document.getElementById('eventNavPanel').classList.remove('active');
+            
+            // Remove permanent labels
+            permanentLabels.forEach(label => label.remove());
+            permanentLabels = [];
+            
+            // Clear selection
+            if (selectedHostId && nodes[selectedHostId]) {
+                nodes[selectedHostId].circle.classList.remove('selected');
+            }
+            selectedHostId = null;
+            
+            // Remove clickable class from nodes
+            Object.keys(nodes).forEach(nodeId => {
+                const node = nodes[nodeId];
+                if (node.circle) {
+                    node.circle.classList.remove('clickable');
+                    node.circle.classList.remove('selected');
                 }
             });
         }

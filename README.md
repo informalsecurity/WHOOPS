@@ -1,4 +1,5 @@
-# WHOOPS - Cybersecurity Incident Timeline Visualizer
+# WHOOPS - Watch How Operators Orchestrate Payload Sequences
+## Cybersecurity Incident Timeline Visualizer
 
 ## Overview
 This tool converts CSV incident data into an interactive, animated HTML visualization showing the progression of cybersecurity incidents. It supports two primary attack scenarios with automatic detection and appropriate visualization.

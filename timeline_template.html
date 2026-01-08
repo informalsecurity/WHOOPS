@@ -471,6 +471,62 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #008CD1;
         }
+    
+        /* === ZOOM & PAN ENHANCEMENTS === */
+        svg#networkCanvas {
+            cursor: grab;
+        }
+        
+        svg#networkCanvas:active {
+            cursor: grabbing;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 120px;
+            right: 20px;
+            background: rgba(6, 26, 35, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #008CD1;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .zoom-controls h3 {
+            color: #F6CF46;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .zoom-btn {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            background: #008CD1;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .zoom-btn:hover {
+            background: #36495E;
+            transform: scale(1.05);
+        }
+
+        .zoom-level {
+            text-align: center;
+            color: #C8C9C7;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
     </style>
 </head>
 <body>
@@ -485,6 +541,16 @@
                 <span>Duration: <strong>{{TOTAL_DURATION}} minutes</strong></span>
                 <span>Events: <strong id="eventCount">0</strong></span>
             </div>
+        </div>
+
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+            <h3>🔍 Zoom</h3>
+            <button class="zoom-btn" id="zoomInBtn">Zoom In (+)</button>
+            <button class="zoom-btn" id="zoomOutBtn">Zoom Out (-)</button>
+            <button class="zoom-btn" id="zoomResetBtn">Reset</button>
+            <button class="zoom-btn" id="zoomFitBtn">Fit All</button>
+            <div class="zoom-level" id="zoomLevel">100%</div>
         </div>
 
         <div class="controls">
@@ -599,11 +665,108 @@
         let externalMaliciousElement = null;
         let compromisedHosts = new Set();
         let svg = null;
+        let mainGroup = null;
         let summaryMode = false;
         let permanentLabels = [];
         let selectedHostId = null;
-        let hostEventMap = {}; // Map of hostId -> array of event indices
+        let hostEventMap = {};
         
+        // === ZOOM & PAN STATE ===
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isPanning = false;
+        let startPanX = 0;
+        let startPanY = 0;
+ // Map of hostId -> array of event indices
+        
+
+        
+        // === DYNAMIC LAYOUT CALCULATION ===
+        function calculateOptimalLayout() {
+            const totalHosts = hosts.length;
+            const baseWidth = 1200;
+            const baseHeight = 800;
+            
+            let radius, spacing;
+            
+            if (totalHosts <= 5) {
+                radius = 350;
+                spacing = 120;
+            } else if (totalHosts <= 10) {
+                radius = 450;
+                spacing = 100;
+            } else if (totalHosts <= 15) {
+                radius = 500;
+                spacing = 80;
+            } else if (totalHosts <= 20) {
+                radius = 550;
+                spacing = 70;
+            } else if (totalHosts <= 30) {
+                radius = 600;
+                spacing = 60;
+            } else {
+                radius = 650 + (totalHosts - 30) * 3;
+                spacing = Math.max(50, 80 - (totalHosts - 30));
+            }
+            
+            const estimatedWidth = radius * 2 + 400;
+            const estimatedHeight = Math.max(radius * 2, totalHosts * spacing);
+            const initialScale = Math.min(
+                baseWidth / estimatedWidth,
+                baseHeight / estimatedHeight,
+                1
+            );
+            
+            return {
+                centerX: baseWidth / 2,
+                centerY: baseHeight / 2,
+                radius: radius,
+                spacing: spacing,
+                initialScale: initialScale,
+                canvasWidth: baseWidth,
+                canvasHeight: baseHeight
+            };
+        }
+        
+        const layout = calculateOptimalLayout();
+        scale = layout.initialScale;
+        
+        // === ZOOM & PAN FUNCTIONS ===
+        function updateViewBox() {
+            const width = layout.canvasWidth / scale;
+            const height = layout.canvasHeight / scale;
+            const x = layout.canvasWidth / 2 - width / 2 - translateX / scale;
+            const y = layout.canvasHeight / 2 - height / 2 - translateY / scale;
+            
+            svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+            document.getElementById('zoomLevel').textContent = `${Math.round(scale * 100)}%`;
+        }
+        
+        function zoomIn() {
+            scale = Math.min(scale * 1.2, 5);
+            updateViewBox();
+        }
+        
+        function zoomOut() {
+            scale = Math.max(scale / 1.2, 0.1);
+            updateViewBox();
+        }
+        
+        function zoomReset() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateViewBox();
+        }
+        
+        function zoomFit() {
+            scale = layout.initialScale * 0.9;
+            translateX = 0;
+            translateY = 0;
+            updateViewBox();
+        }
+
         function initializeNetwork() {
             console.log('=== STARTING NETWORK INITIALIZATION ===');
             console.log('Attack Scenario:', attackScenario);
@@ -626,6 +789,49 @@
             }
             
             svg = document.getElementById('networkCanvas');
+            
+            // Setup zoom group
+            mainGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            mainGroup.setAttribute('id', 'main-group');
+            svg.appendChild(mainGroup);
+            
+            // Setup zoom event listeners
+            svg.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                scale = Math.max(0.1, Math.min(5, scale * delta));
+                updateViewBox();
+            });
+            
+            svg.addEventListener('mousedown', (e) => {
+                if (e.target === svg || e.target.closest('#main-group')) {
+                    isPanning = true;
+                    startPanX = e.clientX - translateX;
+                    startPanY = e.clientY - translateY;
+                    svg.style.cursor = 'grabbing';
+                }
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isPanning) {
+                    translateX = e.clientX - startPanX;
+                    translateY = e.clientY - startPanY;
+                    updateViewBox();
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (isPanning) {
+                    isPanning = false;
+                    svg.style.cursor = 'grab';
+                }
+            });
+            
+            document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
+            document.getElementById('zoomOutBtn').addEventListener('click', zoomOut);
+            document.getElementById('zoomResetBtn').addEventListener('click', zoomReset);
+            document.getElementById('zoomFitBtn').addEventListener('click', zoomFit);
+            
             const width = window.innerWidth;
             const height = window.innerHeight;
             
@@ -640,12 +846,12 @@
             // Create all connections first (as background)
             const connectionsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             connectionsGroup.setAttribute('id', 'connections-group');
-            svg.appendChild(connectionsGroup);
+            mainGroup.appendChild(connectionsGroup);
             
             // Create nodes group
             const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             nodesGroup.setAttribute('id', 'nodes-group');
-            svg.appendChild(nodesGroup);
+            mainGroup.appendChild(nodesGroup);
             
             console.log('Creating nodes for scenario:', attackScenario);
             
@@ -658,11 +864,11 @@
                 if (perimeterDevices && perimeterDevices.length > 0) {
                     console.log('Creating perimeter devices:', perimeterDevices);
                     const perimeterX = 300;
-                    const perimeterStartY = centerY - (perimeterDevices.length - 1) * 60;
+                    const perimeterStartY = layout.centerY - (perimeterDevices.length - 1) * layout.spacing / 2;
                     
                     perimeterDevices.forEach((device, index) => {
                         console.log(`Creating perimeter device ${index}: ${device}`);
-                        const y = perimeterStartY + (index * 120);
+                        const y = perimeterStartY + (index * layout.spacing);
                         createSVGNode(device, perimeterX, y, 'firewall', device, false, true);
                     });
                 } else {
@@ -879,6 +1085,45 @@
                 isBeachhead: isBeachhead,
                 isMalicious: isMalicious
             };
+            
+            // Make node draggable
+            let isDragging = false;
+            let dragStartX, dragStartY;
+            
+            nodeGroup.addEventListener('mousedown', (e) => {
+                if (e.button === 0 && !summaryMode) { // Left click only, not in summary mode
+                    isDragging = true;
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                    nodeGroup.style.cursor = 'grabbing';
+                    e.stopPropagation(); // Prevent pan
+                }
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const dx = (e.clientX - dragStartX) / scale;
+                    const dy = (e.clientY - dragStartY) / scale;
+                    
+                    nodes[id].x += dx;
+                    nodes[id].y += dy;
+                    
+                    nodeGroup.setAttribute('transform', `translate(${nodes[id].x}, ${nodes[id].y})`);
+                    
+                    // Update any connected lines
+                    drawConnections();
+                    
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    nodeGroup.style.cursor = 'pointer';
+                }
+            });
             
             console.log(`✓ Created node: ${id}`);
         }
@@ -1203,20 +1448,25 @@
             
             if (!from || !to) return;
             
-            const label = document.createElement('div');
-            label.className = 'lateral-movement-label';
+            // Create SVG text element instead of HTML div so it transforms with zoom
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('class', 'lateral-movement-label');
             label.textContent = event.lateralMovement;
             
             const midX = (from.x + to.x) / 2;
             const midY = (from.y + to.y) / 2;
             
-            label.style.left = `${midX - 50}px`;
-            label.style.top = `${midY + 10}px`;
+            label.setAttribute('x', midX);
+            label.setAttribute('y', midY + 10);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '11');
+            label.setAttribute('fill', '#84A078');
+            label.setAttribute('font-weight', '600');
             
-            document.getElementById('mainContainer').appendChild(label);
+            mainGroup.appendChild(label);
             
             setTimeout(() => {
-                label.classList.add('show');
+                label.style.opacity = '1';
                 setTimeout(() => {
                     label.remove();
                 }, 3000);
@@ -1551,6 +1801,9 @@
             permanentLabels.forEach(label => label.remove());
             permanentLabels = [];
             
+            // Track how many labels we've added per host pair
+            const hostPairCounts = {};
+            
             let sequenceNumber = 1;
             
             timelineEvents.forEach((event, index) => {
@@ -1558,8 +1811,19 @@
                     const from = nodes[event.sourceHost];
                     const to = nodes[event.destinationHost];
                     
-                    const label = document.createElement('div');
-                    label.className = 'lateral-movement-label permanent ' + getLateralMovementClass(event.lateralMovement);
+                    // Create a key for this host pair (order doesn't matter)
+                    const pairKey = [event.sourceHost, event.destinationHost].sort().join('|');
+                    
+                    // Track count for this pair
+                    if (!hostPairCounts[pairKey]) {
+                        hostPairCounts[pairKey] = 0;
+                    }
+                    const offsetIndex = hostPairCounts[pairKey];
+                    hostPairCounts[pairKey]++;
+                    
+                    // Create SVG text element instead of HTML div
+                    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    label.setAttribute('class', 'lateral-movement-label permanent');
                     label.textContent = `#${sequenceNumber}: ${event.lateralMovement}`;
                     label.dataset.eventIndex = index;
                     label.dataset.sourceHost = event.sourceHost;
@@ -1568,15 +1832,23 @@
                     const midX = (from.x + to.x) / 2;
                     const midY = (from.y + to.y) / 2;
                     
-                    label.style.left = `${midX - 60}px`;
-                    label.style.top = `${midY + 10}px`;
+                    // Offset each label vertically if there are multiple between same hosts
+                    const yOffset = 10 + (offsetIndex * 16);
+                    
+                    label.setAttribute('x', midX);
+                    label.setAttribute('y', midY + yOffset);
+                    label.setAttribute('text-anchor', 'middle');
+                    label.setAttribute('font-size', '11');
+                    label.setAttribute('fill', '#84A078');
+                    label.setAttribute('font-weight', '600');
+                    label.style.cursor = 'pointer';
                     
                     // Click handler for label
                     label.addEventListener('click', () => {
                         showEventDetails(index);
                     });
                     
-                    document.getElementById('mainContainer').appendChild(label);
+                    mainGroup.appendChild(label);
                     permanentLabels.push(label);
                     
                     sequenceNumber++;
@@ -1741,7 +2013,7 @@
             });
         }
         
-        // Keyboard controls
+        // Keyboard controls (Enhanced with Zoom)
         document.addEventListener('keydown', (e) => {
             switch(e.key) {
                 case ' ':
@@ -1749,7 +2021,30 @@
                     togglePlay();
                     break;
                 case 'r':
-                    restart();
+                case 'R':
+                    e.preventDefault();
+                    if (!isPlaying) {
+                        restart();
+                    }
+                    break;
+                case 'f':
+                case 'F':
+                    e.preventDefault();
+                    zoomFit();
+                    break;
+                case '+':
+                case '=':
+                    e.preventDefault();
+                    zoomIn();
+                    break;
+                case '-':
+                case '_':
+                    e.preventDefault();
+                    zoomOut();
+                    break;
+                case '0':
+                    e.preventDefault();
+                    zoomReset();
                     break;
                 case 'Escape':
                     closeModal();
